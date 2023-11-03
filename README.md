@@ -56,9 +56,12 @@ Scalability
 This service is built with scalability in mind, leveraging technologies such as:
 
  **FastApi**: For a high-performance, asynchronous API that scales with ease.
+
  **Docker**: To containerize the application, ensuring consistent deployments.
+ 
  **Redis**: For high-speed data access and rate limiting, reducing load on the database.
-- **Pagination**: Implemented in the emoji gallery listing to ensure that the database queries are efficient and the memory footprint is minimized. This approach improves load times and resource utilization, making the system more responsive and scalable.
+-
+ **Pagination**: Implemented in the emoji gallery listing to ensure that the database queries are efficient and the memory footprint is minimized. This approach improves load times and resource utilization, making the system more responsive and scalable.
 
 Deployment
 For a complete production deployment, consider implementing:
