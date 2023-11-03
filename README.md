@@ -73,4 +73,4 @@ S3 (or equivalent): To store and manage emoji images.
 Message Queue: To handle asynchronous tasks and decouple service dependencies.
 
 see diagarms here:
-![System Diagram](/images/diagram.png "System Design Diagram")
+![System Diagram](gallery_diagram.svg "System Design Diagram")
