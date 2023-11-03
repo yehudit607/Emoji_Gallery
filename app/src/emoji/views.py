@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @router.get("/gallery/emojis", response_model=PagedEmojisResponse)
 async def gallery(
-        user_tier: str, user_id: int,
+        user_tier: str,
         offset: int = 0, limit: int = 10,
         session: Session = Depends(get_session),
 ):
@@ -55,5 +55,5 @@ async def list_user_emojis(
         }
     except Exception as e:
         logger.exception(f"Failed to list emojis for user {user_id}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to list emojis for user {user_id}") from e
-
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f"Failed to list emojis for user {user_id}") from e

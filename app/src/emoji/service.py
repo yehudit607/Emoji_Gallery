@@ -1,7 +1,6 @@
 from typing import List, Tuple, Optional
 from aioredis import Redis
 from sqlalchemy import func
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 
@@ -33,9 +32,9 @@ async def increment_user_emoji_count(redis: Redis, user_id: int):
     await redis.incr(f"user_emoji_count:{user_id}")
 
 
-async def get_gallery_emojis(db: AsyncSession, user_tier: str, offset: int = 0, limit: int = 10) -> Tuple[
+async def get_gallery_emojis(db: Session, user_tier: str, offset: int = 0, limit: int = 10) -> Tuple[
     List[GeneralEmoji], int]:
-    query = select(GeneralEmoji).where(GeneralEmoji.is_active == True)
+    query = select(GeneralEmoji).where(GeneralEmoji.is_active)
 
     if user_tier != 'business':  # If the user is not 'business', filter by type
         allowed_types = ['free']
