@@ -30,6 +30,7 @@ These instructions will get you a copy of the project up and running on your loc
 Navigate to the project directory:
 
 cd emoji-gallery
+
 Build and run the project using Docker Compose:
 
 docker-compose up --build
@@ -38,10 +39,12 @@ docker-compose up --build
 Once the server is running, you can access the following API endpoints:
 
 GET /gallery: Retrieve a paginated list of emojis available in the gallery.
+
 POST /emoji/: Upload a new user emoji (with different limits based on user tier).
+
 GET /user/emojis/{user_id}: Retrieve a list of emojis uploaded by a specific user.
-System Design
-[Insert system design diagram here]
+
+### Sysyem Design
 
 Components:
 
