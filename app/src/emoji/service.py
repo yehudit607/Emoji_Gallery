@@ -64,7 +64,6 @@ def get_user_emojis(
         limit: Optional[int] = 10
 ) -> Tuple[List[UserEmoji], int]:
     query = session.query(UserEmoji).filter(UserEmoji.user_id == user_id)
-
     total = query.count()
 
     emojis = (
