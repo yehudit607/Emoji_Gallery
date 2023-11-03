@@ -1,3 +1,4 @@
+## Emoji Gallery
 ## Overview
 
 The Emoji Gallery is a backend service designed to enable users to add predefined emojis to their movie projects. It supports different tiers of users with varying levels of access to emoji resources.
