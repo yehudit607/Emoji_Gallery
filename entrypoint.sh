@@ -1,9 +1,7 @@
 #!/bin/bash
 
-if [ "$1" = 'api' ] || [ $# -eq 0 ]; then
-  set -e
-  python -m alembic upgrade head
-  exec python main.py
-fi
+# Run the migrations
+alembic upgrade head
 
-eval "$@"
+# Run the API
+uvicorn app.main:app --host 0.0.0.0 --port 8000

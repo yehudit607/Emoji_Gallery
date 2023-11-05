@@ -22,14 +22,13 @@ services:
         target: /app
     depends_on:
       - db
-      - redis
     env_file:
       - .env
 
-  redis:
-    image: "redis:latest"
-    ports:
-      - "6379:6379"
+#  redis:
+#    image: "redis:latest"
+#    ports:
+#      - "6379:6379"
 
 
 volumes:

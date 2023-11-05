@@ -1,76 +1,63 @@
-from typing import List, Tuple, Optional
-from aioredis import Redis
-from sqlalchemy import func
-from sqlalchemy.future import select
+from typing import List
+
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
-from app.src.emoji.orm import GeneralEmoji, UserEmoji
-from app.src.emoji.schema import UserEmojiCreate
-
-MAX_EMOJIS_BY_TIER = {
-    'free': 5,
-    'premium': 100,
-    'business': None,  # Business users have no limit
-}
+from app.src.emoji.models import UserEmoji, GeneralEmoji, User, Tier
 
 
-async def can_user_upload(redis: Redis, user_id: int, user_tier: str) -> bool:
-    if user_tier not in MAX_EMOJIS_BY_TIER:
+class EmojiService:
+    @staticmethod
+    def can_add_emoji(user: User) -> bool:
+        if user.role == 'Business':
+            return True
+        if user.role == 'Premium' and user.emoji_count < 100:
+            return True
+        if user.role == 'Free' and user.emoji_count < 5:
+            return True
         return False
 
-    max_emojis = MAX_EMOJIS_BY_TIER[user_tier]
-    if max_emojis is None:
-        return True  # Business users have no limit
+    @staticmethod
+    def create_emoji(data: dict, user_id: int, db:Session) -> UserEmoji:
+        user = User.get_one(user_id)
+        if not EmojiService.can_add_emoji(user):
+            raise ValueError("Emoji limit reached for your user role.")
 
-    current_emoji_count = await redis.get(f"user_emoji_count:{user_id}")
-    current_emoji_count = int(current_emoji_count) if current_emoji_count else 0
+        emoji = UserEmoji(**data)
+        db.add(emoji)
+        user.emoji_count += 1
+        db.commit()
+        return emoji
 
-    return current_emoji_count < max_emojis
+    from sqlalchemy import or_
+
+    class EmojiService:
+
+        @staticmethod
+        def get_available_emojis(user: User) -> List[GeneralEmoji]:
+            if user.role == 'Business':
+                # Business users get all active emojis.
+                return GeneralEmoji.get_all(
+                    order_by=GeneralEmoji.order,
+                    where=(GeneralEmoji.is_active == True)
+                )
+            elif user.role == 'Premium':
+                # Premium users get all active emojis except for business-only.
+                return GeneralEmoji.get_all(
+                    order_by=GeneralEmoji.order,
+                    where=(
+                            GeneralEmoji.is_active == True &
+                            or_(GeneralEmoji.emoji_type == Tier.Free, GeneralEmoji.emoji_type == Tier.Premium)
+                    )
+                )
+            else:  # Assuming this is 'Free'
+                # Free users get only active free emojis.
+                return GeneralEmoji.get_all(
+                    order_by=GeneralEmoji.order,
+                    where=(GeneralEmoji.is_active == True & GeneralEmoji.emoji_type == Tier.Free)
+                )
 
 
-async def increment_user_emoji_count(redis: Redis, user_id: int):
-    await redis.incr(f"user_emoji_count:{user_id}")
 
 
-async def get_gallery_emojis(db: Session, user_tier: str, offset: int = 0, limit: int = 10) -> Tuple[
-    List[GeneralEmoji], int]:
-    query = select(GeneralEmoji).where(GeneralEmoji.is_active)
 
-    if user_tier != 'business':  # If the user is not 'business', filter by type
-        allowed_types = ['free']
-        if user_tier == 'premium':
-            allowed_types.append('premium')
-        query = query.filter(GeneralEmoji.emoji_type.in_(allowed_types))
-
-    results = await db.execute(query.offset(offset).limit(limit))
-    total = await db.execute(select([func.count()]).select_from(query.subquery()))
-
-    return results.scalars().all(), total.scalar()
-
-
-async def upload_user_emoji(session: Session, redis: Redis, emoji_data: UserEmojiCreate) -> UserEmoji:
-    new_emoji = UserEmoji(**emoji_data.dict())
-    session.add(new_emoji)
-    session.commit()
-    session.refresh(new_emoji)
-    await increment_user_emoji_count(redis, emoji_data.user_id)
-    return new_emoji
-
-
-def get_user_emojis(
-        session: Session,
-        user_id: int,
-        offset: Optional[int] = 0,
-        limit: Optional[int] = 10
-) -> Tuple[List[UserEmoji], int]:
-    query = session.query(UserEmoji).filter(UserEmoji.user_id == user_id)
-    total = query.count()
-
-    emojis = (
-        query.order_by(UserEmoji.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
-
-    return emojis, total

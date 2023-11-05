@@ -1,49 +1,99 @@
 from datetime import datetime
-from typing import Any
 
-import pydantic
-from pydantic import ConfigDict
-from sqlalchemy import event, TIMESTAMP, Column
-from sqlmodel import SQLModel, Field, Index
+from sqlmodel import Field, SQLModel
+
 from app.core.db.session import db
 
-class BaseModel(SQLModel):
+from .record import Record
+
+
+class ModelCore(SQLModel):
+    """Base model for the API
+    Include:
+    - Created and modified dates
+    - Bool deleted for soft delete
+    - CRUD methods
+    """
+
     id: int | None = Field(default=None, primary_key=True)
-    created_datetime: datetime = Field(default=datetime.utcnow, index=True)
-    modified_datetime: datetime = Field(default=datetime.utcnow, index=True)
+    created_datetime: datetime = datetime.now()
+    modified_datetime: datetime = datetime.now()
+    deleted: bool = False
+
+    def save(
+        self,
+        source: str = "API",
+        action: str = "CREATE",
+        owner: str | None = None,
+    ):
+        """Method to save in the DB for creating or updating"""
+        self.modified_datetime = datetime.now()
+        model = db.update(self)
+
+        Record(
+            model_type=self.__class__.__name__,
+            model_id=model.id,
+            source=source,
+            action=action,
+            owner=owner,
+        ).save()
+
+        return model
+
+    def delete(
+        self, source: str = "API", owner: str | None = None, hard: bool = False
+    ) -> bool:
+        """Soft delete: mark object as deleted in DB"""
+        if hard:
+            db.delete(self)
+            action = "HARD_DELETE"
+        else:
+            self.deleted = True
+            action = "SOFT_DELETE"
+            if not self.save():
+                return False
+
+        Record(
+            model_type=self.__class__.__name__,
+            model_id=self.id,
+            source=source,
+            action=action,
+            owner=owner,
+        ).save()
+
+        return True
 
     @classmethod
-    def get_all(cls, offset: int = 0, limit: int = 10, order_by: str = "id"):
-        query = db.query(cls).offset(offset).limit(limit).order_by(getattr(cls, order_by))
-        return query.all()
-
-
-class PostgresTimeStampMixin(object):
-    """Timestamping mixin"""
-
-    created_at = Column(TIMESTAMP(), default=datetime.datetime.utcnow, nullable=False)
-    created_at._creation_order = 9990  # type: ignore
-    updated_at = Column(TIMESTAMP(), default=datetime.datetime.utcnow, nullable=False)
-    updated_at._creation_order = 9991  # type: ignore
-
-    @staticmethod
-    def _updated_at(mapper: Any, connection: Any, target: Any) -> None:
-        target.updated_at = datetime.datetime.utcnow()
+    def get_one(cls, value: any, key: any = None) -> any:
+        """
+        Get one item based in key/value
+        - value: the value of the field
+        - key: the name of the field (default "id") [optional]
+        """
+        if not key:
+            key = cls.id
+        return db.get_one(cls, key=key, value=value)
 
     @classmethod
-    def __declare_last__(cls) -> None:
-        event.listen(cls, "before_update", cls._updated_at)
+    def get_all(cls, offset: int = 0, limit: int = 100, order_by: any = None, where: any = None):
+        """
+        Return a list of items
+        Params:
+        - offset: the first element to be retrieved (default 0) [optional]
+        - limit: the max amount of elements to be retrieved
+         (default 100) [optional]
+        - order_by: the field key to order by (default "id") [optional]
+        - str_match: the value to be used for searching in
+         any field (default "") [optional]
+        """
+        if not order_by:
+            order_by = cls.id
 
+        return db.get_all(
+            model=cls, offset=offset, limit=limit, order_by=order_by
+        )
 
-
-
-class DictMixin:
-    def to_dict(self):
-        """Converts an instance of any class to a dictionary."""
-        # Get the class's namespace and filter out private attributes
-        class_dict = {
-            key: value
-            for key, value in self.__dict__.items()
-            if not key.startswith("_")
-        }
-        return class_dict
+    @classmethod
+    def count(cls):
+        """Count the number of models are in the DB"""
+        return db.count(model=cls)
