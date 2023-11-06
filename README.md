@@ -40,7 +40,9 @@ Once the server is running, you can access the following API endpoints:
 
 GET /gallery: Retrieve a paginated list of emojis available in the gallery.
 
-POST /emoji/: Upload a new user emoji (with different limits based on user tier).
+POST /emoji/: Upload a new user emoji (with different limits based on user tier)
+
+### See Docs: http://localhost:8000/docs
 
 GET /user/emojis/{user_id}: Retrieve a list of emojis uploaded by a specific user.
 
