@@ -1,34 +1,57 @@
+from fastapi import APIRouter
+from app.src.emoji.models import UserEmoji, GeneralEmoji, User
+
+from app.core.db.session import db as get_db
+
+router = APIRouter()
+
+from fastapi import APIRouter
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+
+router = APIRouter()
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.src.emoji.models import UserEmoji, GeneralEmoji, User
+from app.src.emoji.models import User
+from app.src.emoji.schema import UserEmojiResponse, EmojiCreate
 from app.src.emoji.service import EmojiService
 
-from app.core.db.session import db  as get_db
 router = APIRouter()
 
 
-@router.get("/useremoji", response_model=List[UserEmoji])
-def get_user_emojis(user_id: int, db: Session = Depends(get_db)):
-    user_emojis = UserEmoji.get_all(where=UserEmoji.user_id == user_id)
-    return user_emojis
-
-
-@router.get("/generalemoji", response_model=List[GeneralEmoji])
-def get_general_emojis(user_id: int, db: Session = Depends(get_db)):
-    # Assuming you have a way to get the user from the user_id
-    user = User.get_one(user_id)
+@router.post("/user-emojis/", response_model=UserEmoji)
+def create_user_emoji(
+        user_id: int,
+        tier: str,
+        emoji_data: EmojiCreate,
+):
+    # Fetch the user based on user_id (You need to have a method for that)
+    user = User.filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    available_emojis = EmojiService.get_available_emojis(user)
-    return available_emojis
+        raise HTTPException(status_code=404, detail="User not found")
 
-
-@router.post("/useremoji", response_model=UserEmoji)
-def create_user_emoji(user_id: int, emoji_data: dict, db: Session = Depends(get_db)):
     try:
-        created_emoji = EmojiService.create_emoji(data=emoji_data, user_id=user_id, db=db)
-        return created_emoji
+        return EmojiService.create_emoji(data=emoji_data.dict(), user_id=user.id, tier=tier, db=db)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/user-emojis/", response_model=List[UserEmoji])
+def list_user_emojis(
+        user_id: int,
+        tier: str,
+        db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    emojis = EmojiService.get_user_emojis(user_id=user.id, tier=tier, db=db)
+    return emojis
+
+
+@router.get("/general-emojis/", response_model=List[GeneralEmoji])
+def list_general_emojis(tier: str):
+    emojis = EmojiService.get_available_emojis(tier=tier)
+    return emojis

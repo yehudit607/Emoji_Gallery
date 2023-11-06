@@ -18,46 +18,62 @@ class EmojiService:
         return False
 
     @staticmethod
-    def create_emoji(data: dict, user_id: int, db:Session) -> UserEmoji:
+    async def create_emoji(data: dict, user_id: int) -> UserEmoji:
         user = User.get_one(user_id)
         if not EmojiService.can_add_emoji(user):
             raise ValueError("Emoji limit reached for your user role.")
 
         emoji = UserEmoji(**data)
-        db.add(emoji)
-        user.emoji_count += 1
-        db.commit()
+        emoji.save()
         return emoji
 
-    from sqlalchemy import or_
+    @staticmethod
+    async def get_available_emojis(tier: Tier, offset: int = 0, limit: int = 20) -> (List[GeneralEmoji], int):
+        cache_key = f"emojis:{tier}:{offset}:{limit}"
+        cached_emojis = await get_from_cache(redis, cache_key)
 
-    class EmojiService:
+        if cached_emojis:
+            # If cache hit, return the cached emojis
+            emojis, total_count = json.loads(cached_emojis)
+            return emojis, total_count
+        else:
+            # If cache miss, fetch from DB and cache the result
+            where_clause = (GeneralEmoji.is_active == True)
+            # Your existing where clause logic...
 
-        @staticmethod
-        def get_available_emojis(user: User) -> List[GeneralEmoji]:
-            if user.role == 'Business':
-                # Business users get all active emojis.
-                return GeneralEmoji.get_all(
-                    order_by=GeneralEmoji.order,
-                    where=(GeneralEmoji.is_active == True)
-                )
-            elif user.role == 'Premium':
-                # Premium users get all active emojis except for business-only.
-                return GeneralEmoji.get_all(
-                    order_by=GeneralEmoji.order,
-                    where=(
-                            GeneralEmoji.is_active == True &
-                            or_(GeneralEmoji.emoji_type == Tier.Free, GeneralEmoji.emoji_type == Tier.Premium)
-                    )
-                )
-            else:  # Assuming this is 'Free'
-                # Free users get only active free emojis.
-                return GeneralEmoji.get_all(
-                    order_by=GeneralEmoji.order,
-                    where=(GeneralEmoji.is_active == True & GeneralEmoji.emoji_type == Tier.Free)
-                )
+            emojis = GeneralEmoji.get_all(
+                offset=offset,
+                limit=limit,
+                order_by=GeneralEmoji.order,
+                where=where_clause
+            )
+            total_count = GeneralEmoji.count(where=where_clause)
 
+            # Cache the fetched result
+            await save_to_cache(redis, cache_key, json.dumps((emojis, total_count)))
 
+            return emojis, total_count
 
+    @staticmethod
+    async def invalidate_general_emojis_cache():
+        # You might want to invalidate all tiers and ranges
+        tiers = ['Free', 'Premium', 'Business']
+        for tier in tiers:
+            # Assuming you have a fixed range of offsets and limits you want to invalidate
+            for offset in range(0, 100, 20):  # Example range for offsets
+                for limit in [20, 40, 60]:  # Example set of limits
+                    cache_key = f"emojis:{tier}:{offset}:{limit}"
+                    await invalidate_cache(redis, cache_key)
 
+await redis.close()
+    @staticmethod
+    async def get_user_emojis(user: User, offset: int = 0, limit: int = 20) -> (List[UserEmoji], int):
+        where_clause = (UserEmoji.user_id == user.id)
+        emojis = UserEmoji.get_all(
+            offset=offset,
+            limit=limit,
+            where=where_clause
+        )
+        total_count = UserEmoji.count(where=where_clause)
 
+        return emojis, total_count

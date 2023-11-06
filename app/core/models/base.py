@@ -90,7 +90,7 @@ class ModelCore(SQLModel):
             order_by = cls.id
 
         return db.get_all(
-            model=cls, offset=offset, limit=limit, order_by=order_by
+            model=cls, offset=offset, limit=limit, order_by=order_by, where=where
         )
 
     @classmethod

@@ -18,7 +18,7 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from app.core.db.migrations.models import *
+from app.core.db.alembic.models import *
 
 target_metadata = SQLModel.metadata
 

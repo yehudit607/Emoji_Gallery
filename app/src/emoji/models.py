@@ -21,31 +21,28 @@ class User(ModelCore, table=True):
     emoji_count: int = Field(default=0)  # Number of emojis added by the user
     user_emojis: List["UserEmoji"] = Relationship(back_populates="user")
 
-    class Config:
-        orm_mode = True
-
-
-class UserEmoji(ModelCore, table=True):
-    __tablename__ = 'user_emojis'
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    emoji_id: int = Field(foreign_key="general_emojis.id")
-    user_id: int = Field(foreign_key="users.id")
-    user: User = Relationship(back_populates="user_emojis")
-
-    class Config:
-        orm_mode = True
-
-
-class GeneralEmoji(ModelCore, table=True):
-    __tablename__ = 'general_emojis'
+class EmojiBase(ModelCore):
+    __abstract__ = True
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
+
+
+class UserEmoji(EmojiBase, table=True):
+    __tablename__ = 'user_emojis'
+
+    user_id: int = Field(foreign_key="users.id", index=True)
+
+    class Config:
+        orm_mode = True
+
+
+class GeneralEmoji(EmojiBase, table=True):
+    __tablename__ = 'general_emojis'
+
     order: int = Field(default=0)
-    emoji_type: Tier = Field(sa_column_kwargs={"index": True})
+    emoji_type: Tier = Field(sa_column_kwargs={"index": True},  index=True)
     is_active: bool = Field(default=True)
-    user_emojis: List["UserEmoji"] = Relationship(back_populates="emoji")
 
     class Config:
         orm_mode = True
